@@ -1,0 +1,56 @@
+name: Test Beacon MCP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create MCP server
+        run: |
+          cat > index.mjs <<'EOF'
+          import { McpServer } from '@modelcontextprotocol/server';
+          import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+          import * as z from 'zod/v4';
+
+          const server = new McpServer({
+            name: 'beacon-mcp-server',
+            version: '0.1.0'
+          });
+
+          server.registerTool(
+            'audit_business',
+            {
+              title: 'Audit Business',
+              description: 'Run a Beacon AI visibility audit for a business.',
+              inputSchema: z.object({
+                business_name: z.string(),
+                city: z.string(),
+                category: z.string()
+              })
+            },
+            async ({ business_name, city, category }) => ({
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  business_name,
+                  city,
+                  category,
+                  status: 'ready',
+                  message: 'Beacon MCP is working.'
+                })
+              }]
+            })
+          );
+
+          const transport = new StdioServerTransport();
+          await server.connect(transport);
+          EOF
+
+      - name: Install dependencies
+        run: npm install @modelcontextprotocol/server zod
+
+      - name: Check server starts
+        run: timeout 5 node index.mjs || test $? -eq 124
